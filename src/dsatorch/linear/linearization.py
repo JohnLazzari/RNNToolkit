@@ -14,10 +14,17 @@ class Linearization:
 
         Args:
             mrnn: mRNN object
-            W_inp: Custom input weights to be used when linearizing
-            W_rec: Custom recurrent weights to be used when linearizing
         """
         self.rnn = rnn
+
+    def __call__(
+        self,
+        inp: torch.Tensor,
+        h: torch.Tensor,
+        delta_inp: torch.Tensor,
+        delta_h: torch.Tensor,
+    ) -> torch.Tensor:
+        return self.forward(inp, h, delta_inp, delta_h)
 
     @staticmethod
     def relu_grad(x: torch.Tensor) -> torch.Tensor:
@@ -42,6 +49,57 @@ class Linearization:
             torch: Elementwise derivatives of x.
         """
         return torch.autograd.functional.jacobian(F.tanh, x)
+
+    def forward(
+        self,
+        inp: torch.Tensor,
+        h: torch.Tensor,
+        delta_inp: torch.Tensor,
+        delta_h: torch.Tensor,
+        keep_dims=False,
+    ) -> torch.Tensor:
+        """
+        First order taylor exansion of RNN at a given point and input
+
+        Args:
+            inp: 1D tensor of input for network at a given state
+            h: 1D tensor of network state to linearize about
+            delta_inp: perturbation of input
+            delta_h: perturbation of state
+        """
+
+        # Assert correct shapes
+        assert inp.dim() == 1
+        assert h.dim() == 1
+        assert delta_inp.shape == delta_h.shape
+
+        pert_shape = tuple(delta_inp.shape)
+
+        if delta_inp.dim() > 1:
+            delta_inp = delta_inp.flatten(start_dim=0, end_dim=-2)
+        if delta_h.dim() > 1:
+            delta_h = delta_h.flatten(start_dim=0, end_dim=-2)
+
+        # Get jacobians
+        _jacobian, _jacobian_inp = self.jacobian(h)
+
+        # reshape to pass into RNN
+        inp = inp.unsqueeze(0).unsqueeze(0)
+        h = h.unsqueeze(0).unsqueeze(0)
+
+        # Get h_next for affine function
+        _, h_next = self.rnn(inp, h)
+
+        h_pert = (
+            h_next.squeeze(0)
+            + (_jacobian @ delta_h.T).T
+            + (_jacobian_inp @ delta_inp.T).T
+        )
+
+        if keep_dims:
+            h_pert = torch.reshape(h_pert, pert_shape)
+
+        return h_pert
 
     def jacobian(
         self, h: torch.Tensor

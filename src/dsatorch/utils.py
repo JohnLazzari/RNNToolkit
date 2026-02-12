@@ -45,6 +45,13 @@ def line_attractor_score(
     return score, lambd_1_dist, lambd_2_dist
 
 
+def projection(v1: torch.Tensor, v2: torch.Tensor) -> torch.Tensor:
+    """
+    Projection of tensor v1 onto tensor v2
+    """
+    return torch.dot(v1, v2) / torch.dot(v2, v2) * v2
+
+
 def orthogonalize(v1: torch.Tensor, *args) -> Tuple[torch.Tensor, ...]:
     """Find orthgonal basis for passed in LDA objects
     This function will update the mode for each passed in object
@@ -58,10 +65,7 @@ def orthogonalize(v1: torch.Tensor, *args) -> Tuple[torch.Tensor, ...]:
     orth_vecs = (v1,)
     for v in args:
         sub_projection = v.clone()
-        for orth_vec in orth_vecs:
-            projection = (
-                torch.dot(v, orth_vec) / torch.dot(orth_vec, orth_vec) * orth_vec
-            )
-            sub_projection -= projection
+        projections = [projection(v, orth_vec) for orth_vec in orth_vecs]
+        sub_projection = projections[0] - torch.stack(projections[1:]).sum(dim=0)
         orth_vecs = (*orth_vecs, sub_projection)
     return orth_vecs
