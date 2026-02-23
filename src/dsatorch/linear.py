@@ -1,7 +1,6 @@
 import torch
 from torch.nn import RNN, GRU, LSTM
 import torch.nn.functional as F
-import numpy as np
 
 
 class Linearization:
@@ -36,6 +35,7 @@ class Linearization:
         Returns:
             torch: Elementwise derivatives of x.
         """
+        # check what this returns
         return torch.autograd.functional.jacobian(F.relu, x)
 
     @staticmethod
@@ -136,6 +136,9 @@ class Linearization:
             d_x_act_diag = self.tanh_grad(h)
         else:
             raise ValueError("not a valid activation function")
+
+        assert isinstance(self.rnn.weight_hh_l0, torch.Tensor)
+        assert isinstance(self.rnn.weight_ih_l0, torch.Tensor)
 
         # Get final jacobian using form above
         _jacobian = d_x_act_diag @ self.rnn.weight_hh_l0

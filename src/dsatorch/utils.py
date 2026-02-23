@@ -66,6 +66,6 @@ def orthogonalize(v1: torch.Tensor, *args) -> Tuple[torch.Tensor, ...]:
     for v in args:
         sub_projection = v.clone()
         projections = [projection(v, orth_vec) for orth_vec in orth_vecs]
-        sub_projection = projections[0] - torch.stack(projections[1:]).sum(dim=0)
+        sub_projection -= torch.stack(projections).sum(dim=0)
         orth_vecs = (*orth_vecs, sub_projection)
     return orth_vecs

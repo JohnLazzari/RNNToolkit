@@ -5,7 +5,7 @@ import time
 from copy import deepcopy
 
 from .fp import FixedPointCollection
-from dsatorch.linear.linearization import Linearization
+from dsatorch.linear import Linearization
 
 
 class FixedPointFinder:

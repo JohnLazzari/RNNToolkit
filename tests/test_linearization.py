@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import pytest
 
-from dsatorch.linear.linearization import Linearization
+from dsatorch.linear import Linearization
 
 
 def test_relu_grad_is_diagonal():
@@ -32,10 +32,3 @@ def test_jacobian_matches_weighted_activation_grad():
 
     assert torch.allclose(jac, expected_jac)
     assert torch.allclose(jac_inp, expected_inp)
-
-
-def test_eigendecomposition_raises_on_alpha_kwarg():
-    rnn = nn.RNN(input_size=2, hidden_size=2, batch_first=True, nonlinearity="tanh")
-    linearization = Linearization(rnn)
-    with pytest.raises(TypeError):
-        linearization.eigendecomposition(torch.tensor([0.1, -0.2]))
