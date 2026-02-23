@@ -1,12 +1,15 @@
 import torch
-from torch.nn import RNN, GRU, LSTM
+import torch.nn as nn
 import torch.nn.functional as F
+from typing import Generic, TypeVar
+
+RNN = TypeVar("RNN", bound=nn.Module)
 
 
-class Linearization:
+class Linearization(Generic[RNN]):
     def __init__(
         self,
-        rnn: RNN | GRU | LSTM,
+        rnn: RNN,
     ):
         """
         Linearization object that stores methods for local analyses of mRNNs
@@ -26,7 +29,7 @@ class Linearization:
         return self.forward(inp, h, delta_inp, delta_h)
 
     @staticmethod
-    def relu_grad(x: torch.Tensor) -> torch.Tensor:
+    def relu_grad(x: torch.Tensor):
         """
         relu function.
         Args:
@@ -39,7 +42,7 @@ class Linearization:
         return torch.autograd.functional.jacobian(F.relu, x)
 
     @staticmethod
-    def tanh_grad(x: torch.Tensor) -> torch.Tensor:
+    def tanh_grad(x: torch.Tensor):
         """
         tanh function.
         Args:

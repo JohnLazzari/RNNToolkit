@@ -1,14 +1,16 @@
 import torch
-from torch.nn import RNN, GRU, LSTM
+import torch.nn as nn
 import numpy as np
 import time
 from copy import deepcopy
 
 from .fp import FixedPointCollection
-from dsatorch.linear import Linearization
+from typing import Generic, TypeVar
+
+RNN = TypeVar("RNN", bound=nn.Module)
 
 
-class FixedPointFinder:
+class FixedPointFinder(Generic[RNN]):
     _default_hps = {
         "lr_init": 1e-4,
         "lr_patience": 5,
@@ -51,7 +53,7 @@ class FixedPointFinder:
 
     def __init__(
         self,
-        rnn: RNN | GRU | LSTM,
+        rnn: RNN,
         lr_init: float = _default_hps["lr_init"],
         lr_patience: float = _default_hps["lr_patience"],
         lr_factor: float = _default_hps["lr_factor"],
@@ -311,7 +313,7 @@ class FixedPointFinder:
                 "fixed points to keep." % self.max_n_unique
             )
             max_n_unique = int(self.max_n_unique)
-            idx_keep = self.rng.choice(unique_fps.n, max_n_unique, replace=False)
+            idx_keep = list(self.rng.choice(unique_fps.n, max_n_unique, replace=False))
             unique_fps = unique_fps[idx_keep]
 
         self._print_if_verbose("\tFixed point finding complete.\n")
@@ -344,12 +346,8 @@ class FixedPointFinder:
         # Add IID Gaussian noise
         if noise_scale == 0.0:
             return data  # no noise to add
-        if noise_scale > 0.0:
-            return data + noise_scale * self.rng.randn(*data.shape)
-        elif noise_scale < 0.0:
-            raise ValueError(
-                "noise_scale must be non-negative, but was %f" % noise_scale
-            )
+        else:
+            return data + noise_scale * torch.from_numpy(self.rng.randn(*data.shape))
 
     @staticmethod
     def identify_q_outliers(fps: FixedPointCollection, q_thresh: float) -> torch.Tensor:
@@ -462,7 +460,7 @@ class FixedPointFinder:
         idx_keep = self.get_fp_non_distance_outliers(
             fps, initial_states, self.outlier_distance_scale
         )
-        return fps[idx_keep]
+        return fps[idx_keep.tolist()]
 
     def _run_additional_iterations_on_outliers(
         self,
@@ -496,14 +494,14 @@ class FixedPointFinder:
             large.
         """
 
-        outlier_min_q = np.median(fps.qstar) * self.outlier_q_scale
+        outlier_min_q = float(np.median(fps.qstar) * self.outlier_q_scale)
 
         def perform_outlier_optimization(
             fps: FixedPointCollection,
         ) -> FixedPointCollection:
             idx_outliers = self.identify_q_outliers(fps, outlier_min_q)
 
-            outlier_fps = fps[idx_outliers]
+            outlier_fps = fps[idx_outliers.tolist()]
             n_prev_iters = outlier_fps.n_iters
             inputs = outlier_fps.inputs
             initial_states = outlier_fps.xstar
@@ -517,7 +515,7 @@ class FixedPointFinder:
             updated_outlier_fps = self._fp_optimization(initial_states, inputs)
 
             updated_outlier_fps.n_iters += n_prev_iters
-            fps[idx_outliers] = updated_outlier_fps
+            fps[idx_outliers.tolist()] = updated_outlier_fps
 
             return fps
 
@@ -761,19 +759,3 @@ class FixedPointFinder:
         data = data.to(self.torch_dtype)
         data = data.to(self.device)
         return data
-
-    def get_jacobian(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Wrapper around linearization object jacobian for current fixed points
-        """
-        linearization = Linearization(self.rnn)
-        return linearization.jacobian(x)
-
-    def decompose_jacobian(
-        self, x: torch.Tensor, alpha: float = 1
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        """
-        Wrapper around linearization object decomposition for current fixed points
-        """
-        linearization = Linearization(self.rnn)
-        return linearization.eigendecomposition(x, alpha=alpha)

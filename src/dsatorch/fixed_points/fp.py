@@ -35,15 +35,15 @@ class FixedPointCollection:
     def __init__(
         self,
         xstar: torch.Tensor,  # Fixed-point specific data
-        x_init: torch.Tensor = None,
-        inputs: torch.Tensor = None,
-        F_xstar: torch.Tensor = None,
-        qstar: torch.Tensor = None,
-        dq: torch.Tensor = None,
-        n_iters: torch.Tensor = None,
+        x_init: torch.Tensor | None = None,
+        inputs: torch.Tensor | None = None,
+        F_xstar: torch.Tensor | None = None,
+        qstar: torch.Tensor | None = None,
+        dq: torch.Tensor | None = None,
+        n_iters: torch.Tensor | None = None,
         tol_unique: float = 1e-3,
-        dtype: torch.float = torch.float32,
-        dtype_complex: torch.complex = torch.complex64,
+        dtype=torch.float32,
+        dtype_complex=torch.complex64,
         verbose: bool = False,
     ):
         """
@@ -177,7 +177,7 @@ class FixedPointCollection:
         for attr_name in self._data_attrs_fp:
             attr_val = getattr(self, attr_name)
             indexed_val = self._safe_index(attr_val, index)
-            kwargs[attr_name] = indexed_val.clone()
+            kwargs[attr_name] = indexed_val.clone() if indexed_val is not None else None
         return type(self)(**kwargs)
 
     def __len__(self) -> int:

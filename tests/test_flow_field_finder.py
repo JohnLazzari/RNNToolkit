@@ -29,13 +29,3 @@ def test_inverse_grid_shapes_match_num_points():
 
     assert low_dim_grid.shape == (16, 2)
     assert inv_grid.shape == (16, 2)
-
-
-def test_find_linear_flow_raises_on_alpha_kwarg():
-    rnn = nn.RNN(input_size=2, hidden_size=2, batch_first=True, nonlinearity="tanh")
-    finder = FlowFieldFinder(rnn, num_points=3, x_offset=1, y_offset=1)
-
-    states = torch.tensor([[0.1, 0.2], [0.2, 0.1]])
-
-    with pytest.raises(TypeError):
-        finder.find_linear_flow(states)

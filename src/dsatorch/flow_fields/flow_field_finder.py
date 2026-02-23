@@ -1,12 +1,15 @@
 import torch
-from torch.nn import RNN, GRU, LSTM
+import torch.nn as nn
 import numpy as np
 from sklearn.decomposition import PCA
 from dsatorch.linear import Linearization
 from dsatorch.flow_fields.flow_field import FlowField
+from typing import Generic, TypeVar
+
+RNN = TypeVar("RNN", bound=nn.Module)
 
 
-class FlowFieldFinder:
+class FlowFieldFinder(Generic[RNN]):
     _default_hps = {
         "num_components": 2,
         "num_points": 50,
@@ -15,19 +18,18 @@ class FlowFieldFinder:
         "cancel_other_regions": False,
         "follow_traj": False,
         "name": "run",
-        "reduction_method": "pca",
         "dtype": torch.float32,
     }
 
     def __init__(
         self,
-        rnn,
+        rnn: RNN,
         num_points: int = _default_hps["num_points"],
         x_offset: int = _default_hps["x_offset"],
         y_offset: int = _default_hps["y_offset"],
         cancel_other_regions: bool = _default_hps["cancel_other_regions"],
         follow_traj: bool = _default_hps["follow_traj"],
-        dtype: float = _default_hps["dtype"],
+        dtype=_default_hps["dtype"],
     ):
         """
         Flow field that gathers a flow field about a specified trajectory
@@ -220,10 +222,18 @@ class FlowFieldFinder:
             # If follow trajectory is true get grid centered around current t
             # This will make a different grid for each state (n grids)
             if self.follow_traj:
-                lower_bound_x = np.round(reduced_traj[n, 0] - self.x_offset, decimals=1)
-                upper_bound_x = np.round(reduced_traj[n, 0] + self.x_offset, decimals=1)
-                lower_bound_y = np.round(reduced_traj[n, 1] - self.y_offset, decimals=1)
-                upper_bound_y = np.round(reduced_traj[n, 1] + self.y_offset, decimals=1)
+                lower_bound_x = torch.round(
+                    reduced_traj[n, 0] - self.x_offset, decimals=1
+                ).item()
+                upper_bound_x = torch.round(
+                    reduced_traj[n, 0] + self.x_offset, decimals=1
+                ).item()
+                lower_bound_y = torch.round(
+                    reduced_traj[n, 1] - self.y_offset, decimals=1
+                ).item()
+                upper_bound_y = torch.round(
+                    reduced_traj[n, 1] + self.y_offset, decimals=1
+                ).item()
 
             # Inverse the grid to pass through RNN
             low_dim_grid, inverse_grid = self._inverse_grid(
@@ -238,7 +248,7 @@ class FlowFieldFinder:
 
             with torch.no_grad():
                 # Return jacobian found from current trajectory
-                jac_rec = self.linearization.jacobian(states[n, :])
+                jac_rec, _ = self.linearization.jacobian(states[n, :])
                 # Get next h
                 h = states[n, :] + (jac_rec @ x_0_flow.T).T
 

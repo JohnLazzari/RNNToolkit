@@ -61,12 +61,3 @@ def test_find_fixed_points_smoke():
 
     assert unique_fps.n > 0
     assert all_fps.n == initial_states.shape[0]
-
-
-def test_get_jacobian_returns_tuple():
-    rnn = nn.RNN(input_size=2, hidden_size=2, batch_first=True, nonlinearity="tanh")
-    finder = FixedPointFinder(rnn, verbose=False, super_verbose=False)
-
-    jac = finder.get_jacobian(torch.tensor([0.1, 0.2]))
-    assert isinstance(jac, tuple)
-    assert jac[0].shape == (2, 2)
