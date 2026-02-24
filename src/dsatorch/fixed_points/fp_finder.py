@@ -152,7 +152,6 @@ class FixedPointFinder(Generic[RNN]):
         """
 
         self.dtype = dtype
-        self.np_dtype = np.dtype(dtype)
         self.device = next(rnn.parameters()).device
         self.torch_dtype = getattr(torch, self.dtype)
 
@@ -242,10 +241,7 @@ class FixedPointFinder(Generic[RNN]):
         return states
 
     def find_fixed_points(
-        self,
-        initial_states: torch.Tensor,
-        ext_inputs: torch.Tensor,
-        n_rounds_q_opt: int = 1,
+        self, initial_states: torch.Tensor, ext_inputs: torch.Tensor, **kwargs
     ) -> tuple[FixedPointCollection, FixedPointCollection]:
         """Finds RNN fixed points and the Jacobians at the fixed points.
 
@@ -281,6 +277,8 @@ class FixedPointFinder(Generic[RNN]):
             points before filtering out putative duplicates to yield
             unique_fps).
         """
+
+        n_rounds_q_opt = kwargs["n_rounds_q_opt"] if "n_rounds_q_opt" in kwargs else 1
 
         all_fps = self._fp_optimization(
             initial_states,
@@ -369,6 +367,7 @@ class FixedPointFinder(Generic[RNN]):
             idx = identify_q_outliers(fps, q_thresh)
             outlier_fps = fps[idx]
         """
+        assert fps.qstar is not None
         return torch.where(fps.qstar > q_thresh)[0]
 
     @staticmethod
@@ -393,6 +392,7 @@ class FixedPointFinder(Generic[RNN]):
             idx = identify_q_non_outliers(fps, q_thresh)
             non_outlier_fps = fps[idx]
         """
+        assert fps.qstar is not None
         return torch.where(fps.qstar <= q_thresh)[0]
 
     @staticmethod
@@ -463,9 +463,7 @@ class FixedPointFinder(Generic[RNN]):
         return fps[idx_keep.tolist()]
 
     def _run_additional_iterations_on_outliers(
-        self,
-        fps: FixedPointCollection,
-        n_rounds: int = 1,
+        self, fps: FixedPointCollection, **kwargs
     ) -> FixedPointCollection:
         """Detects outlier states with respect to the q function and runs
         additional optimization iterations on those states This should only be
@@ -494,6 +492,10 @@ class FixedPointFinder(Generic[RNN]):
             large.
         """
 
+        n_rounds = kwargs["n_rounds"] if "n_rounds" in kwargs else 1
+
+        assert fps.qstar is not None
+
         outlier_min_q = float(np.median(fps.qstar) * self.outlier_q_scale)
 
         def perform_outlier_optimization(
@@ -512,7 +514,12 @@ class FixedPointFinder(Generic[RNN]):
                 "over outlier states only."
             )
 
+            assert inputs is not None
+            assert n_prev_iters is not None
+
             updated_outlier_fps = self._fp_optimization(initial_states, inputs)
+
+            assert updated_outlier_fps.n_iters is not None
 
             updated_outlier_fps.n_iters += n_prev_iters
             fps[idx_outliers.tolist()] = updated_outlier_fps
@@ -738,7 +745,7 @@ class FixedPointFinder(Generic[RNN]):
             dq=ev_dq_b,
             n_iters=n_iters,
             tol_unique=self.tol_unique,
-            dtype=self.np_dtype,
+            dtype=self.torch_dtype,
         )
 
         return fps

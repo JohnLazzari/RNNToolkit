@@ -56,7 +56,7 @@ class FlowFieldFinder(Generic[RNN]):
         self.linearization = Linearization(self.rnn)
 
     def find_nonlinear_flow(
-        self, states: torch.Tensor, inp: torch.Tensor, verbose: bool = False
+        self, states: torch.Tensor, inp: torch.Tensor, **kwargs
     ) -> list:
         """Compute 2D flow fields in a region subspace along a trajectory.
 
@@ -74,6 +74,8 @@ class FlowFieldFinder(Generic[RNN]):
         Returns:
             list: FlowField object per sampled time.
         """
+
+        verbose = kwargs["verbose"] if "verbose" in kwargs else False
 
         flow_field_list = []
 
