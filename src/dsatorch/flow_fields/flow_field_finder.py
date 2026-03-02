@@ -35,7 +35,7 @@ class FlowFieldFinder(Generic[RNN]):
         Flow field that gathers a flow field about a specified trajectory
 
         Args:
-            mrnn (mRNN): mRNN object
+            mrnn (RNN): RNN-like object
             num_points (int): number of points to use in grid, results in (num_points, num_points)
             x_offset (int): scale to offset grid about trajectory in x direction
             y_offset (int): scale to offset grid about trajectory in y direction
@@ -49,6 +49,7 @@ class FlowFieldFinder(Generic[RNN]):
         self.y_offset = y_offset
         self.cancel_other_regions = cancel_other_regions
         self.follow_traj = follow_traj
+        self.time_dim = 1 if self.rnn.batch_first else 0
         self.dtype = dtype
 
         # class objects
@@ -82,20 +83,14 @@ class FlowFieldFinder(Generic[RNN]):
 
         flow_field_list = []
 
-        if self.rnn.batch_first:
-            time_dim = 1
-        else:
-            time_dim = 0
+        # Reshape to nxd
+        states, inp = self._nxd(states), self._nxd(inp)
 
-        if states.dim() == 1:
-            states = states.unsqueeze(0)
-
-        if inp.dim() == 1:
-            inp = inp.unsqueeze(0)
-
+        # flatten in case the dimensions are larger than 2
         states = torch.flatten(states, end_dim=-2)
         inp = torch.flatten(inp, end_dim=-2)
 
+        # assert states and input match shape
         assert states.shape[0] == inp.shape[0]
         n_states = states.shape[0]
 
@@ -103,57 +98,14 @@ class FlowFieldFinder(Generic[RNN]):
         reduced_traj = self._reduce_traj(states)
 
         # Now going through trajectory
-        for n in range(1, n_states):
-            # If follow trajectory is true get grid centered around current t
-            # This will make a different grid for each state (n grids)
-            if self.follow_traj:
-                lower_bound_x, upper_bound_x, lower_bound_y, upper_bound_y = (
-                    self._set_tv_bounds(reduced_traj, n)
-                )
-            else:
-                lower_bound_x, upper_bound_x, lower_bound_y, upper_bound_y = (
-                    self._set_bounds(center=0)
-                )
-
-            low_dim_grid, inverse_grid = self._inverse_grid(
-                lower_bound_x,
-                upper_bound_x,
-                lower_bound_y,
-                upper_bound_y,
-            )
-
-            # Repeat along the batch dimension to match the grid
-            full_inp_batch = inp[n].repeat(low_dim_grid.shape[0], 1)
-
-            with torch.no_grad():
-                # Current timestep input
-                # Get activity for current timestep
-                _, h = self.rnn(
-                    full_inp_batch.unsqueeze(time_dim),
-                    inverse_grid.unsqueeze(0),
-                )
-
-            # Get activity for regions of interest
-            cur_region_h = torch.reshape(h, (-1, h.shape[-1]))
-            cur_region_h = self.reduce_obj.transform(cur_region_h)
-            cur_region_h = torch.tensor(cur_region_h, dtype=self.dtype)
-
-            x_vel, y_vel = self._compute_velocity(cur_region_h, low_dim_grid)
-            speed = self._compute_speed(x_vel, y_vel)
-
-            # Reshape to match FlowField object requirements
-            x_vel, y_vel, low_dim_grid, speed = self._reshape_vals(
-                x_vel, y_vel, low_dim_grid, speed
-            )
-
-            flow_field = FlowField(x_vel, y_vel, low_dim_grid, speed)
+        for n in range(n_states):
+            flow_field = self._compute_nonlinear_flowfield(reduced_traj[n], inp[n])
             flow_field_list.append(flow_field)
 
         return flow_field_list
 
     def find_linear_flow(
-        self,
-        states: torch.Tensor,
+        self, states: torch.Tensor, inp: torch.Tensor, inp_next: torch.Tensor, **kwargs
     ) -> list:
         """Compute linearized flow fields in a 2D subspace.
 
@@ -166,61 +118,131 @@ class FlowFieldFinder(Generic[RNN]):
         Returns:
             list: FlowField objects per sampled time.
         """
+
+        # Unload kwargs
+        traj_to_reduce = (
+            kwargs["traj_to_reduce"] if "traj_to_reduce" in kwargs else states
+        )
+
+        # reshape to nxd
+        states, inp, inp_next = self._nxd(states), self._nxd(inp), self._nxd(inp_next)
+
+        # flatten in case the dimensions are larger than 2
+        states = torch.flatten(states, end_dim=-2)
+        inp = torch.flatten(inp, end_dim=-2)
+        inp_next = torch.flatten(inp_next, end_dim=-2)
+
+        assert inp.shape[0] == inp_next.shape[0]
+        assert states.shape[0] == inp.shape[0]
+        n_states = states.shape[0]
+
         # Lists for x and y velocities
         flow_field_list = []
 
-        states = torch.flatten(states, end_dim=-2)
-        n_states = states.shape[0]
-
         # Reduce the regional trajectories and return pca object
-        self._fit_traj(states)
+        self._fit_traj(traj_to_reduce)
         reduced_traj = self._reduce_traj(states)
 
-        for n in range(1, n_states):
-            # If follow trajectory is true get grid centered around current t
-            # This will make a different grid for each state (n grids)
-            if self.follow_traj:
-                lower_bound_x, upper_bound_x, lower_bound_y, upper_bound_y = (
-                    self._set_tv_bounds(reduced_traj, n)
-                )
-            else:
-                lower_bound_x, upper_bound_x, lower_bound_y, upper_bound_y = (
-                    self._set_bounds(center=0)
-                )
-
-            # Inverse the grid to pass through RNN
-            low_dim_grid, inverse_grid = self._inverse_grid(
-                lower_bound_x,
-                upper_bound_x,
-                lower_bound_y,
-                upper_bound_y,
+        for n in range(n_states):
+            flow_field = self._compute_linear_flowfield(
+                states[n], reduced_traj[n], inp[n], inp_next[n]
             )
-
-            # Get a perturbation of the activity
-            x_0_flow = inverse_grid - states[n, :]
-
-            with torch.no_grad():
-                # Return jacobian found from current trajectory
-                jac_rec, _ = self.linearization.jacobian(states[n, :])
-                # Get next h
-                h = states[n, :] + (jac_rec @ x_0_flow.T).T
-
-            # Put next h into a grid format
-            cur_region_h = self.reduce_obj.transform(h)
-            cur_region_h = torch.tensor(cur_region_h, dtype=self.dtype)
-
-            # Compute velocities between gathered trajectory of grid and original grid values
-            x_vel, y_vel = self._compute_velocity(cur_region_h, low_dim_grid)
-            speed = self._compute_speed(x_vel, y_vel)
-
-            x_vel, y_vel, low_dim_grid, speed = self._reshape_vals(
-                x_vel, y_vel, low_dim_grid, speed
-            )
-
-            # Reshape data back to grid
-            flow_field_list.append(FlowField(x_vel, y_vel, low_dim_grid, speed))
+            flow_field_list.append(flow_field)
 
         return flow_field_list
+
+    def _compute_nonlinear_flowfield(self, reduced_traj_n, inp_n):
+        # If follow trajectory is true get grid centered around current t
+        # This will make a different grid for each state (n grids)
+        if self.follow_traj:
+            lower_bound_x, upper_bound_x, lower_bound_y, upper_bound_y = (
+                self._set_tv_bounds(reduced_traj_n)
+            )
+        else:
+            lower_bound_x, upper_bound_x, lower_bound_y, upper_bound_y = (
+                self._set_bounds(center=0)
+            )
+
+        low_dim_grid, inverse_grid = self._inverse_grid(
+            lower_bound_x,
+            upper_bound_x,
+            lower_bound_y,
+            upper_bound_y,
+        )
+
+        # Repeat along the batch dimension to match the grid
+        full_inp_batch = inp_n.repeat(low_dim_grid.shape[0], 1)
+
+        with torch.no_grad():
+            # Current timestep input
+            # Get activity for current timestep
+            _, h = self.rnn(
+                full_inp_batch.unsqueeze(self.time_dim),
+                inverse_grid.unsqueeze(0),
+            )
+
+        # Reduce h_next
+        h_next = self._reduce_traj(h)
+
+        # Compute velocity and speed
+        x_vel, y_vel = self._compute_velocity(h_next, low_dim_grid)
+        speed = self._compute_speed(x_vel, y_vel)
+
+        # Reshape to match FlowField object requirements
+        x_vel, y_vel, low_dim_grid, speed = self._reshape_vals(
+            x_vel, y_vel, low_dim_grid, speed
+        )
+
+        return FlowField(x_vel, y_vel, low_dim_grid, speed)
+
+    def _compute_linear_flowfield(self, states_n, reduced_traj_n, inp_n, inp_next_n):
+        # If follow trajectory is true get grid centered around current t
+        # This will make a different grid for each state (n grids)
+        if self.follow_traj:
+            lower_bound_x, upper_bound_x, lower_bound_y, upper_bound_y = (
+                self._set_tv_bounds(reduced_traj_n)
+            )
+        else:
+            lower_bound_x, upper_bound_x, lower_bound_y, upper_bound_y = (
+                self._set_bounds(center=0)
+            )
+
+        # Inverse the grid to pass through RNN
+        low_dim_grid, inverse_grid = self._inverse_grid(
+            lower_bound_x,
+            upper_bound_x,
+            lower_bound_y,
+            upper_bound_y,
+        )
+
+        # Get a perturbation of the activity
+        x_0_flow = inverse_grid - states_n
+        delta_inp = inp_next_n - inp_n
+
+        with torch.no_grad():
+            # Return jacobian found from current trajectory
+            jac_rec, jac_inp = self.linearization.jacobian(states_n)
+            # Get next h
+            h = states_n + (jac_rec @ x_0_flow.T).T + (jac_inp @ delta_inp.T).T
+
+        # Put next h into a grid format
+        h_next = self._reduce_traj(h)
+
+        # Compute velocities between gathered trajectory of grid and original grid values
+        x_vel, y_vel = self._compute_velocity(h_next, low_dim_grid)
+        speed = self._compute_speed(x_vel, y_vel)
+
+        x_vel, y_vel, low_dim_grid, speed = self._reshape_vals(
+            x_vel, y_vel, low_dim_grid, speed
+        )
+
+        # Reshape data back to grid
+        return FlowField(x_vel, y_vel, low_dim_grid, speed)
+
+    def _nxd(self, x: torch.Tensor) -> torch.Tensor:
+        if x.dim() == 1:
+            x = x.unsqueeze(0)
+        return x
 
     def _fit_traj(self, trajectory: torch.Tensor):
         """
@@ -342,11 +364,9 @@ class FlowFieldFinder(Generic[RNN]):
         upper_bound_y = center + self.y_offset
         return lower_bound_x, upper_bound_x, lower_bound_y, upper_bound_y
 
-    def _set_tv_bounds(
-        self, traj: torch.Tensor, n: int
-    ) -> Tuple[float, float, float, float]:
-        lower_bound_x = torch.round(traj[n, 0] - self.x_offset, decimals=1).item()
-        upper_bound_x = torch.round(traj[n, 0] + self.x_offset, decimals=1).item()
-        lower_bound_y = torch.round(traj[n, 1] - self.y_offset, decimals=1).item()
-        upper_bound_y = torch.round(traj[n, 1] + self.y_offset, decimals=1).item()
+    def _set_tv_bounds(self, traj: torch.Tensor) -> Tuple[float, float, float, float]:
+        lower_bound_x = torch.round(traj[0] - self.x_offset, decimals=1).item()
+        upper_bound_x = torch.round(traj[0] + self.x_offset, decimals=1).item()
+        lower_bound_y = torch.round(traj[1] - self.y_offset, decimals=1).item()
+        upper_bound_y = torch.round(traj[1] + self.y_offset, decimals=1).item()
         return lower_bound_x, upper_bound_x, lower_bound_y, upper_bound_y
