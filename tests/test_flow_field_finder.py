@@ -24,6 +24,7 @@ def test_inverse_grid_shapes_match_num_points():
     finder = FlowFieldFinder(rnn, num_points=4, x_offset=1, y_offset=1)
 
     traj = torch.tensor([[0.0, 0.1], [0.2, 0.3]])
+    finder._fit_traj(traj)
     finder._reduce_traj(traj)
     low_dim_grid, inv_grid = finder._inverse_grid(-1, 1, -1, 1)
 

@@ -23,11 +23,18 @@ Install from source in the project root directory using:
 pip install -e .
 ```
 
+## Package layout
+| Component | Description |
+| --- | --- |
+| `dsatorch.fixed_points` | Module to run fixed point optimization on RNNs    |
+| `dsatorch.flow_fields`  | Compute flow fields / phase portraits on RNN states in reduced dimensions |
+| `dsatorch.linear`       | Linearize RNNs about states and compute jacobians |
+
 ## Quick start
 
 ### Linearization
 
-`Linearization` expects an RNN-like module with `weight_hh_l0`, `weight_ih_l0`, and an `activation_name` attribute ("relu" or "tanh").
+`Linearization` expects an RNN-like module.
 
 ```python
 import torch
@@ -59,16 +66,11 @@ print(unique_fps.n)
 
 ### Flow fields
 
-`FlowFieldFinder` expects a model that provides `get_region_activity(h)` and `activation_name`. If your model does not expose those, use a thin wrapper.
+`FlowFieldFinder` also works with standard PyTorch RNNs.
 
 ```python
 import torch
 from dsatorch.flow_fields.flow_field_finder import FlowFieldFinder
-
-class WrappedRNN(torch.nn.RNN):
-    activation_name = "tanh"
-    def get_region_activity(self, h):
-        return h
 
 rnn = WrappedRNN(input_size=2, hidden_size=2, nonlinearity="tanh", batch_first=True)
 flow_finder = FlowFieldFinder(rnn, num_points=25, x_offset=1, y_offset=1)
