@@ -216,14 +216,12 @@ class FlowFieldFinder(Generic[RNN]):
         )
 
         # Get a perturbation of the activity
-        x_0_flow = inverse_grid - states_n
+        delta_h = inverse_grid - states_n
         delta_inp = inp_next_n - inp_n
 
         with torch.no_grad():
-            # Return jacobian found from current trajectory
-            jac_rec, jac_inp = self.linearization.jacobian(states_n)
-            # Get next h
-            h = states_n + (jac_rec @ x_0_flow.T).T + (jac_inp @ delta_inp.T).T
+            # call forward method for linearization to get affine transformation
+            h = self.linearization(inp_n, states_n, delta_inp, delta_h)
 
         # Put next h into a grid format
         h_next = self._reduce_traj(h)

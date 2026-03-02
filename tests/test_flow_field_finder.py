@@ -14,7 +14,7 @@ def test_find_nonlinear_flow_returns_flow_fields():
 
     flows = finder.find_nonlinear_flow(states, inp)
 
-    assert len(flows) == states.shape[0] - 1
+    assert len(flows) == states.shape[0]
     assert flows[0].x_vels.shape == (3, 3)
     assert flows[0].grid.shape == (3, 3, 2)
 
