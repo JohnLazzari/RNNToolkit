@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 import torch
 
-from dsatorch.utils import (
+from rnntoolkit.utils import (
     unit_vector,
     angle_between,
     line_attractor_score,

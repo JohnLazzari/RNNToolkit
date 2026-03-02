@@ -1,6 +1,6 @@
 import torch
 
-from dsatorch.flow_fields.flow_field import FlowField
+from rnntoolkit.flow_fields.flow_field import FlowField
 
 
 def _make_flow_field():

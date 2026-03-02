@@ -1,6 +1,6 @@
 import torch
 
-from dsatorch.fixed_points.fp import FixedPointCollection
+from rnntoolkit.fixed_points.fp import FixedPointCollection
 
 
 def _make_fps():

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import pytest
 
-from dsatorch.linear import Linearization
+from rnntoolkit.linear import Linearization
 
 
 def test_relu_grad_is_diagonal():

@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 import numpy as np
 from sklearn.decomposition import PCA
-from dsatorch.linear import Linearization
-from dsatorch.flow_fields.flow_field import FlowField
+from rnntoolkit.linear import Linearization
+from rnntoolkit.flow_fields.flow_field import FlowField
 from typing import Generic, TypeVar, Tuple
 
 RNN = TypeVar("RNN", bound=nn.Module)

@@ -1,6 +1,6 @@
-# DSATorch
+# RNNTookit
 
-DSATorch provides small, focused utilities for analyzing recurrent neural networks (RNNs) in PyTorch. It includes tools for local linearization, fixed point discovery, and flow-field visualization.
+RNNToolkit (previously DSATorch) provides small, focused utilities for analyzing recurrent neural networks (RNNs) in PyTorch. It includes tools for local linearization, fixed point discovery, and flow-field visualization.
 
 ## What is included
 
@@ -26,9 +26,9 @@ pip install -e .
 ## Package layout
 | Component | Description |
 | --- | --- |
-| `dsatorch.fixed_points` | Module to run fixed point optimization on RNNs    |
-| `dsatorch.flow_fields`  | Compute flow fields / phase portraits on RNN states in reduced dimensions |
-| `dsatorch.linear`       | Linearize RNNs about states and compute jacobians |
+| `rnntoolkit.fixed_points` | Module to run fixed point optimization on RNNs    |
+| `rnntoolkit.flow_fields`  | Compute flow fields / phase portraits on RNN states in reduced dimensions |
+| `rnntoolkit.linear`       | Linearize RNNs about states and compute jacobians |
 
 ## Quick start
 
@@ -38,7 +38,7 @@ pip install -e .
 
 ```python
 import torch
-from dsatorch.linear.linearization import Linearization
+from rnntoolkit.linear.linearization import Linearization
 
 rnn = torch.nn.RNN(input_size=2, hidden_size=2, nonlinearity="tanh", batch_first=True)
 
@@ -53,7 +53,7 @@ J_rec, J_inp = lin.jacobian(state)
 
 ```python
 import torch
-from dsatorch.fixed_points.fp_finder import FixedPointFinder
+from rnntoolkit.fixed_points.fp_finder import FixedPointFinder
 
 rnn = torch.nn.RNN(input_size=2, hidden_size=2, nonlinearity="tanh", batch_first=True)
 fp_finder = FixedPointFinder(rnn, max_iters=100, verbose=False, super_verbose=False)
@@ -70,9 +70,9 @@ print(unique_fps.n)
 
 ```python
 import torch
-from dsatorch.flow_fields.flow_field_finder import FlowFieldFinder
+from rnntoolkit.flow_fields.flow_field_finder import FlowFieldFinder
 
-rnn = WrappedRNN(input_size=2, hidden_size=2, nonlinearity="tanh", batch_first=True)
+rnn = RNN(input_size=2, hidden_size=2, nonlinearity="tanh", batch_first=True)
 flow_finder = FlowFieldFinder(rnn, num_points=25, x_offset=1, y_offset=1)
 
 states = torch.randn(10, 2)
