@@ -59,7 +59,6 @@ class Linearization(Generic[RNN]):
         h: torch.Tensor,
         delta_inp: torch.Tensor,
         delta_h: torch.Tensor,
-        keep_dims=False,
     ) -> torch.Tensor:
         """
         First order taylor exansion of RNN at a given point and input
@@ -74,12 +73,7 @@ class Linearization(Generic[RNN]):
         # Assert correct shapes
         assert inp.dim() == 1
         assert h.dim() == 1
-        assert delta_inp.shape == delta_h.shape
 
-        pert_shape = tuple(delta_inp.shape)
-
-        if delta_inp.dim() > 1:
-            delta_inp = delta_inp.flatten(start_dim=0, end_dim=-2)
         if delta_h.dim() > 1:
             delta_h = delta_h.flatten(start_dim=0, end_dim=-2)
 
@@ -94,13 +88,8 @@ class Linearization(Generic[RNN]):
         _, h_next = self.rnn(inp, h)
 
         h_pert = (
-            h_next.squeeze(0)
-            + (_jacobian @ delta_h.T).T
-            + (_jacobian_inp @ delta_inp.T).T
+            h_next.squeeze(0) + (_jacobian @ delta_h.T).T + (_jacobian_inp @ delta_inp)
         )
-
-        if keep_dims:
-            h_pert = torch.reshape(h_pert, pert_shape)
 
         return h_pert
 

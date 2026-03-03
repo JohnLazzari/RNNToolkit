@@ -15,6 +15,7 @@ class FlowFieldFinder(Generic[RNN]):
         "num_points": 50,
         "x_offset": 1,
         "y_offset": 1,
+        "center": 0,
         "cancel_other_regions": False,
         "follow_traj": False,
         "name": "run",
@@ -27,6 +28,7 @@ class FlowFieldFinder(Generic[RNN]):
         num_points: int = _default_hps["num_points"],
         x_offset: int = _default_hps["x_offset"],
         y_offset: int = _default_hps["y_offset"],
+        center: int = _default_hps["center"],
         cancel_other_regions: bool = _default_hps["cancel_other_regions"],
         follow_traj: bool = _default_hps["follow_traj"],
         dtype=_default_hps["dtype"],
@@ -47,6 +49,7 @@ class FlowFieldFinder(Generic[RNN]):
         self.num_points = num_points
         self.x_offset = x_offset
         self.y_offset = y_offset
+        self.center = center
         self.cancel_other_regions = cancel_other_regions
         self.follow_traj = follow_traj
         self.time_dim = 1 if self.rnn.batch_first else 0
@@ -86,10 +89,6 @@ class FlowFieldFinder(Generic[RNN]):
         # Reshape to nxd
         states, inp = self._nxd(states), self._nxd(inp)
 
-        # flatten in case the dimensions are larger than 2
-        states = torch.flatten(states, end_dim=-2)
-        inp = torch.flatten(inp, end_dim=-2)
-
         # assert states and input match shape
         assert states.shape[0] == inp.shape[0]
         n_states = states.shape[0]
@@ -105,7 +104,7 @@ class FlowFieldFinder(Generic[RNN]):
         return flow_field_list
 
     def find_linear_flow(
-        self, states: torch.Tensor, inp: torch.Tensor, inp_next: torch.Tensor, **kwargs
+        self, states: torch.Tensor, inp: torch.Tensor, delta_inp: torch.Tensor, **kwargs
     ) -> list:
         """Compute linearized flow fields in a 2D subspace.
 
@@ -125,15 +124,9 @@ class FlowFieldFinder(Generic[RNN]):
         )
 
         # reshape to nxd
-        states, inp, inp_next = self._nxd(states), self._nxd(inp), self._nxd(inp_next)
+        states, inp, delta_inp = self._nxd(states), self._nxd(inp), self._nxd(delta_inp)
 
-        # flatten in case the dimensions are larger than 2
-        states = torch.flatten(states, end_dim=-2)
-        inp = torch.flatten(inp, end_dim=-2)
-        inp_next = torch.flatten(inp_next, end_dim=-2)
-
-        assert inp.shape[0] == inp_next.shape[0]
-        assert states.shape[0] == inp.shape[0]
+        assert states.shape[0] == delta_inp.shape[0]
         n_states = states.shape[0]
 
         # Lists for x and y velocities
@@ -145,13 +138,15 @@ class FlowFieldFinder(Generic[RNN]):
 
         for n in range(n_states):
             flow_field = self._compute_linear_flowfield(
-                states[n], reduced_traj[n], inp[n], inp_next[n]
+                states[n], reduced_traj[n], inp[n], delta_inp[n]
             )
             flow_field_list.append(flow_field)
 
         return flow_field_list
 
-    def _compute_nonlinear_flowfield(self, reduced_traj_n, inp_n):
+    def _compute_nonlinear_flowfield(
+        self, reduced_traj_n: torch.Tensor, inp_n: torch.Tensor
+    ) -> FlowField:
         # If follow trajectory is true get grid centered around current t
         # This will make a different grid for each state (n grids)
         if self.follow_traj:
@@ -160,7 +155,7 @@ class FlowFieldFinder(Generic[RNN]):
             )
         else:
             lower_bound_x, upper_bound_x, lower_bound_y, upper_bound_y = (
-                self._set_bounds(center=0)
+                self._set_bounds()
             )
 
         low_dim_grid, inverse_grid = self._inverse_grid(
@@ -195,7 +190,22 @@ class FlowFieldFinder(Generic[RNN]):
 
         return FlowField(x_vel, y_vel, low_dim_grid, speed)
 
-    def _compute_linear_flowfield(self, states_n, reduced_traj_n, inp_n, inp_next_n):
+    def _compute_linear_flowfield(
+        self,
+        states_n: torch.Tensor,
+        reduced_traj_n: torch.Tensor,
+        inp_n: torch.Tensor,
+        delta_inp_n: torch.Tensor,
+    ) -> FlowField:
+        """
+        Compute a singular flow field of an affine function
+
+        Args:
+            states_n (Tensor): a particular state of the RNN
+            reduced_traj_n (Tensor): the reduced state (n_components = 2)
+            inp_n (Tensor): the input to the network corresponding to the state
+            inp_next (Tensor): the
+        """
         # If follow trajectory is true get grid centered around current t
         # This will make a different grid for each state (n grids)
         if self.follow_traj:
@@ -204,7 +214,7 @@ class FlowFieldFinder(Generic[RNN]):
             )
         else:
             lower_bound_x, upper_bound_x, lower_bound_y, upper_bound_y = (
-                self._set_bounds(center=0)
+                self._set_bounds()
             )
 
         # Inverse the grid to pass through RNN
@@ -217,11 +227,10 @@ class FlowFieldFinder(Generic[RNN]):
 
         # Get a perturbation of the activity
         delta_h = inverse_grid - states_n
-        delta_inp = inp_next_n - inp_n
 
         with torch.no_grad():
             # call forward method for linearization to get affine transformation
-            h = self.linearization(inp_n, states_n, delta_inp, delta_h)
+            h = self.linearization(inp_n, states_n, delta_inp_n, delta_h)
 
         # Put next h into a grid format
         h_next = self._reduce_traj(h)
@@ -238,8 +247,15 @@ class FlowFieldFinder(Generic[RNN]):
         return FlowField(x_vel, y_vel, low_dim_grid, speed)
 
     def _nxd(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Broadcast to nxd, even for a 1d tensor
+
+        Args:
+            x (Tensor): tensor to broadcast
+        """
         if x.dim() == 1:
             x = x.unsqueeze(0)
+        x = torch.flatten(x, end_dim=-2)
         return x
 
     def _fit_traj(self, trajectory: torch.Tensor):
@@ -355,11 +371,11 @@ class FlowFieldFinder(Generic[RNN]):
         speeds = torch.reshape(speeds, (self.num_points, self.num_points))
         return x_vels, y_vels, grid, speeds
 
-    def _set_bounds(self, center: float = 0.0) -> Tuple[float, float, float, float]:
-        lower_bound_x = center - self.x_offset
-        upper_bound_x = center + self.x_offset
-        lower_bound_y = center - self.y_offset
-        upper_bound_y = center + self.y_offset
+    def _set_bounds(self) -> Tuple[float, float, float, float]:
+        lower_bound_x = self.center - self.x_offset
+        upper_bound_x = self.center + self.x_offset
+        lower_bound_y = self.center - self.y_offset
+        upper_bound_y = self.center + self.y_offset
         return lower_bound_x, upper_bound_x, lower_bound_y, upper_bound_y
 
     def _set_tv_bounds(self, traj: torch.Tensor) -> Tuple[float, float, float, float]:
