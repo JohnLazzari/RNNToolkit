@@ -22,17 +22,7 @@ class FlowFieldFinder(Generic[RNN]):
         "dtype": torch.float32,
     }
 
-    def __init__(
-        self,
-        rnn: RNN,
-        num_points: int = _default_hps["num_points"],
-        x_offset: int = _default_hps["x_offset"],
-        y_offset: int = _default_hps["y_offset"],
-        center: int = _default_hps["center"],
-        cancel_other_regions: bool = _default_hps["cancel_other_regions"],
-        follow_traj: bool = _default_hps["follow_traj"],
-        dtype=_default_hps["dtype"],
-    ):
+    def __init__(self, rnn: RNN, **kwargs):
         """
         Flow field that gathers a flow field about a specified trajectory
 
@@ -44,16 +34,36 @@ class FlowFieldFinder(Generic[RNN]):
             cancel_other_regions (bool): whether or not to zero out activity from other regions
             follow_traj (bool): whether or not to center the grid around each trajectory
         """
-        # Hyperparameters
         self.rnn = rnn
-        self.num_points = num_points
-        self.x_offset = x_offset
-        self.y_offset = y_offset
-        self.center = center
-        self.cancel_other_regions = cancel_other_regions
-        self.follow_traj = follow_traj
+        # Unload kwargs
+        self.num_points = (
+            kwargs["num_points"]
+            if "num_points" in kwargs
+            else self._default_hps["num_points"]
+        )
+        self.x_offset = (
+            kwargs["x_offset"]
+            if "x_offset" in kwargs
+            else self._default_hps["x_offset"]
+        )
+        self.y_offset = (
+            kwargs["y_offset"]
+            if "y_offset" in kwargs
+            else self._default_hps["y_offset"]
+        )
+        self.center = (
+            kwargs["center"] if "center" in kwargs else self._default_hps["center"]
+        )
+        self.follow_traj = (
+            kwargs["follow_traj"]
+            if "follow_traj" in kwargs
+            else self._default_hps["follow_traj"]
+        )
+        self.dtype = (
+            kwargs["dtype"] if "dtype" in kwargs else self._default_hps["dtype"]
+        )
+
         self.time_dim = 1 if self.rnn.batch_first else 0
-        self.dtype = dtype
 
         # class objects
         self.reduce_obj = PCA(n_components=2)
