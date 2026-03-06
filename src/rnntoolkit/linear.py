@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from typing import Generic, TypeVar
 
 RNN = TypeVar("RNN", bound=nn.Module)
@@ -21,43 +20,18 @@ class Linearization(Generic[RNN]):
 
     def __call__(
         self,
-        inp: torch.Tensor,
+        input: torch.Tensor,
         h: torch.Tensor,
-        delta_inp: torch.Tensor,
+        delta_input: torch.Tensor,
         delta_h: torch.Tensor,
     ) -> torch.Tensor:
-        return self.forward(inp, h, delta_inp, delta_h)
-
-    @staticmethod
-    def relu_grad(x: torch.Tensor):
-        """
-        relu function.
-        Args:
-            x (torch.Tensor): pre-activation x to be used for gradient calculation
-            (can be batched now)
-        Returns:
-            torch: Elementwise derivatives of x.
-        """
-        # check what this returns
-        return torch.autograd.functional.jacobian(F.relu, x)
-
-    @staticmethod
-    def tanh_grad(x: torch.Tensor):
-        """
-        tanh function.
-        Args:
-            x (torch.Tensor): pre-activation x to be used for gradient calculation
-            (can be batched now)
-        Returns:
-            torch: Elementwise derivatives of x.
-        """
-        return torch.autograd.functional.jacobian(F.tanh, x)
+        return self.forward(input, h, delta_input, delta_h)
 
     def forward(
         self,
-        inp: torch.Tensor,
+        input: torch.Tensor,
         h: torch.Tensor,
-        delta_inp: torch.Tensor,
+        delta_input: torch.Tensor,
         delta_h: torch.Tensor,
     ) -> torch.Tensor:
         """
@@ -71,30 +45,32 @@ class Linearization(Generic[RNN]):
         """
 
         # Assert correct shapes
-        assert inp.dim() == 1
+        assert input.dim() == 1
         assert h.dim() == 1
 
         if delta_h.dim() > 1:
             delta_h = delta_h.flatten(start_dim=0, end_dim=-2)
 
         # Get jacobians
-        _jacobian, _jacobian_inp = self.jacobian(h)
+        _jacobian, _jacobian_inp = self.jacobian(input, h)
 
         # reshape to pass into RNN
-        inp = inp.unsqueeze(0).unsqueeze(0)
+        inp = input.unsqueeze(0).unsqueeze(0)
         h = h.unsqueeze(0).unsqueeze(0)
 
         # Get h_next for affine function
         _, h_next = self.rnn(inp, h)
 
         h_pert = (
-            h_next.squeeze(0) + (_jacobian @ delta_h.T).T + (_jacobian_inp @ delta_inp)
+            h_next.squeeze(0)
+            + (_jacobian @ delta_h.T).T
+            + (_jacobian_inp @ delta_input)
         )
 
         return h_pert
 
     def jacobian(
-        self, h: torch.Tensor
+        self, input: torch.Tensor, h: torch.Tensor
     ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
         """Linearize the dynamics around a state and return the Jacobian.
 
@@ -115,30 +91,14 @@ class Linearization(Generic[RNN]):
         """
         assert h.dim() == 1
 
-        """
-            Taking jacobian of x with respect to F
-            In this case, the form should be:
-                J_(ij)(x) = -I_(ij) + W_(ij)h'(x_j)
-        """
+        _jacobian_input, _jacobian_h = torch.autograd.functional.jacobian(
+            self.rnn, (input, h)
+        )
 
-        # Implementing h'(x), diagonalize to multiply by W
-        if self.rnn.nonlinearity == "relu":
-            d_x_act_diag = self.relu_grad(h)
-        elif self.rnn.nonlinearity == "tanh":
-            d_x_act_diag = self.tanh_grad(h)
-        else:
-            raise ValueError("not a valid activation function")
-
-        assert isinstance(self.rnn.weight_hh_l0, torch.Tensor)
-        assert isinstance(self.rnn.weight_ih_l0, torch.Tensor)
-
-        # Get final jacobian using form above
-        _jacobian = d_x_act_diag @ self.rnn.weight_hh_l0
-        _jacobian_inp = d_x_act_diag @ self.rnn.weight_ih_l0
-        return _jacobian, _jacobian_inp
+        return _jacobian_h, _jacobian_input
 
     def eigendecomposition(
-        self, x: torch.Tensor
+        self, input: torch.Tensor, h: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Linearize the network and compute eigen decomposition.
 
@@ -150,7 +110,7 @@ class Linearization(Generic[RNN]):
             torch.Tensor: Imag parts of eigenvalues.
             torch.Tensor: Eigenvectors stacked column-wise.
         """
-        _jacobian, _ = self.jacobian(x)
+        _jacobian, _ = self.jacobian(input, h)
         eigenvalues, eigenvectors = torch.linalg.eig(_jacobian)
 
         # Split real and imaginary parts
