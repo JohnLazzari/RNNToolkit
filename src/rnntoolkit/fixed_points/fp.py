@@ -53,50 +53,28 @@ class FixedPointCollection:
         Optional args:
 
             xstar: [n x n_states] tensor with row xstar[i, :]
-            specifying an the fixed point identified from x_init[i, :].
-            Default: None.
-
+                specifying an the fixed point identified from x_init[i, :].
             x_init: [n x n_states] tensor with row x_init[i, :]
-            specifying the initial state from which xstar[i, :] was optimized.
-            Default: None.
-
+                specifying the initial state from which xstar[i, :] was optimized.
             inputs: [n x n_inputs] tensor with row inputs[i, :]
-            specifying the input to the RNN during the optimization of
-            xstar[i, :]. Default: None.
-
+                specifying the input to the RNN during the optimization of
+                xstar[i, :].
             F_xstar: [n x n_states] tensor with F_xstar[i, :]
-            specifying RNN state after transitioning from the fixed point in
-            xstar[i, :]. If the optimization succeeded (e.g., to 'tol') and
-            identified a stable fixed point, the state should not move
-            substantially from the fixed point (i.e., xstar[i, :] should be
-            very close to F_xstar[i, :]). Default: None.
-
+                specifying RNN state after transitioning from the fixed point in
+                xstar[i, :].
             qstar: [n,] tensor with qstar[i] containing the
-            optimized objective (1/2)(x-F(x))^T(x-F(x)), where
-            x = xstar[i, :]^T and F is the RNN transition function (with the
-            specified constant inputs). Default: None.
-
+                optimized objective (1/2)(x-F(x))^T(x-F(x))
             dq: [n,] tensor with dq[i] containing the absolute
-            difference in the objective function after (i.e., qstar[i]) vs
-            before the final gradient descent step of the optimization of
-            xstar[i, :]. Default: None.
-
+                difference in the objective function after (i.e., qstar[i]) vs
+                before the final gradient descent step of the optimization of
+                xstar[i, :]
             n_iters: [n,] tensor with n_iters[i] as the number of
-            gradient descent iterations completed to yield xstar[i, :].
-            Default: None.
-
+                gradient descent iterations completed to yield xstar[i, :].
             tol_unique: Positive scalar specifying the numerical precision
-            required to label two fixed points as being unique from one
-            another. Two fixed points are considered unique if the 2-norm of
-            the difference between their concatenated (xstar, inputs) is
-            greater than this tolerance. Default: 1e-3.
-
+                required to label two fixed points as being unique from one
+                another.
             dtype: Data type for representing all of the object's data.
-            Default: torch.float32.
-
             dtype_complex: Data type for representing complex values.
-            Default: torch.complex32.
-
             verbose: Bool indicating whether to print status updates.
 
         """
@@ -215,7 +193,7 @@ class FixedPointCollection:
         )
 
         idx_keep = []
-        idx_checked = torch.zeros(size=(self.n,), dtype=bool)
+        idx_checked = torch.zeros(size=(self.n,), dtype=torch.bool)
         for idx in range(self.n):
             if idx_checked[idx]:
                 # If this FP matched others, we've already determined which
@@ -225,7 +203,7 @@ class FixedPointCollection:
 
             # Don't compare against FPs we've already checked
             idx_check = torch.where(~idx_checked)[0]
-            fps_check = self[idx_check]  # only check against these FPs
+            fps_check = self[idx_check.tolist()]  # only check against these FPs
             idx_idx_check = fps_check.find(self[idx])  # indexes into fps_check
             idx_match = idx_check[idx_idx_check]  # indexes into self
 
@@ -233,7 +211,8 @@ class FixedPointCollection:
                 # Only matches with itself
                 idx_keep.append(idx)
             else:
-                qstars_match = self._safe_index(self.qstar, idx_match)
+                qstars_match = self._safe_index(self.qstar, idx_match.tolist())
+                assert isinstance(qstars_match, torch.Tensor)
                 idx_candidate = idx_match[torch.argmin(qstars_match)]
                 idx_keep.append(int(idx_candidate))
                 idx_checked[idx_match] = True
@@ -277,7 +256,7 @@ class FixedPointCollection:
 
         # If not found or comparison is impossible (due to type or shape),
         # follow convention of torch.where and return an empty tensor.
-        result = torch.empty(0, dtype=int)
+        result = torch.empty(0, dtype=torch.int)
 
         if isinstance(fp, FixedPointCollection):
             if fp.n_states == self.n_states and fp.n_inputs == self.n_inputs:
@@ -285,8 +264,9 @@ class FixedPointCollection:
                     self_data_nxd = self.xstar
                     arg_data_nxd = fp.xstar
                 else:
-                    self_data_nxd = torch.cat((self.xstar, self.inputs), axis=1)
-                    arg_data_nxd = torch.cat((fp.xstar, fp.inputs), axis=1)
+                    self_data_nxd = torch.cat((self.xstar, self.inputs), dim=1)
+                    assert isinstance(fp.inputs, torch.Tensor)
+                    arg_data_nxd = torch.cat((fp.xstar, fp.inputs), dim=1)
 
                 norm_diffs_n = torch.linalg.norm(self_data_nxd - arg_data_nxd, axis=1)
 
@@ -340,7 +320,7 @@ class FixedPointCollection:
                 elif self_attr is not None and other_attr is None:
                     setattr(self, attr_name, self_attr)
                 else:
-                    cat_attr = torch.cat((self_attr, other_attr), axis=0)
+                    cat_attr = torch.cat((self_attr, other_attr), dim=0)
                     setattr(self, attr_name, cat_attr)
 
         self.n = self.n + new_fps.n
@@ -468,7 +448,9 @@ class FixedPointCollection:
                 )
 
     @staticmethod
-    def _safe_index(x: torch.Tensor, idx: int | list | slice) -> torch.Tensor:
+    def _safe_index(
+        x: torch.Tensor | None, idx: int | list | slice
+    ) -> torch.Tensor | None:
         """Safe method for indexing into a tensor that might be None.
 
         Args:

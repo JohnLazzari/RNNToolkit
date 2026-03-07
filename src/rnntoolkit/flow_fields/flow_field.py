@@ -20,9 +20,6 @@ class FlowField:
             y_vels (tensor): [n, n] y velocities
             grid (tensor): [n, n, d] grid coordinates
             speeds (tensor): [n, n] speeds
-            grid_rows (int): number of rows in grid
-            grid_columns (int): number of columns in grid
-            state_size (int): dimensions of state in grid
         """
         # Flow storage
         self.x_vels = x_vels.clone()

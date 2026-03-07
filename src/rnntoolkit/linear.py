@@ -10,6 +10,9 @@ class Linearization:
         """
         Linearization object that stores methods for local analyses of mRNNs
 
+        This class is not meant for subclassing, for those subclassing flow fields
+        and fixed points make your own linearization object
+
         Args:
             mrnn: mRNN object
         """
@@ -22,6 +25,9 @@ class Linearization:
         delta_input: torch.Tensor,
         delta_h: torch.Tensor,
     ) -> torch.Tensor:
+        """
+        Calling foward method to apply affine function at given state and input
+        """
         return self.forward(input, h, delta_input, delta_h)
 
     def forward(
@@ -35,16 +41,17 @@ class Linearization:
         First order taylor exansion of RNN at a given point and input
 
         Args:
-            inp: 1D tensor of input for network at a given state
-            h: 1D tensor of network state to linearize about
-            delta_inp: perturbation of input
-            delta_h: perturbation of state
+            input (Tensor): 1D tensor of input for network at a given state
+            h (Tensor): 1D tensor of network state to linearize about
+            delta_inp (Tensor): 1D tensor for perturbation of input to apply to input jacobian
+            delta_h (Tensor): batched perturbations of state
         """
 
         # Assert correct shapes
         assert input.dim() == 1
         assert h.dim() == 1
 
+        # assert correct batch dimensions
         if delta_h.dim() > 1:
             delta_h = delta_h.flatten(start_dim=0, end_dim=-2)
 
@@ -72,20 +79,16 @@ class Linearization:
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Linearize the dynamics around a state and return the Jacobian.
 
-        Computes the Jacobian of the mRNN update with respect to the hidden state
-        evaluated at the provided state ``x`` and (optionally) a subset of regions
-        defined by ``*args``. If ``W_inp`` is provided, also returns the Jacobian
-        with respect to the input.
+        Computes the Jacobian of the RNN update with respect to the hidden state
+        evaluated at the provided state ``h`` and input ``input``.
 
         Args:
-            x (torch.Tensor): 1D or batched tensor representing the pre-activation state at which to
-                linearize (shape ``[H]``).
-            *args (str): Optional region names specifying a subset for the Jacobian.
-            alpha (float): Discretization factor used in the update.
+            input (torch.Tensor): 1D tensor representing the input for the network at state h
+            h (torch.Tensor): 1D tensor representing the desired state h for taylor expansion
 
         Returns:
-            torch.Tensor | tuple[torch.Tensor, torch.Tensor]: Jacobian w.r.t. hidden
-            state, and optionally (Jacobian w.r.t. input) if ``W_inp`` is provided.
+            _jacobian_h (torch.Tensor): jacobian of h_t+1 w respect to h_t
+            _jacobian_inp (torch.Tensor): jacobian of h_t+1 w respect to input_t
         """
         assert h.dim() == 1
         assert input.dim() == 1
@@ -106,7 +109,8 @@ class Linearization:
         """Linearize the network and compute eigen decomposition.
 
         Args:
-            x (torch.Tensor): 1D hidden state where the system is linearized.
+            input (torch.Tensor): 1D tensor representing the input for the network at state h
+            h (torch.Tensor): 1D tensor representing the desired state h for taylor expansion
 
         Returns:
             torch.Tensor: Real parts of eigenvalues.

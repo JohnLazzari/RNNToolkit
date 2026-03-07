@@ -22,15 +22,18 @@ class FlowFieldFinder(FlowFieldFinderBase):
             rnn, fit_states, num_points, x_offset, y_offset, x_center, y_center
         )
         """
-        Flow field that gathers a flow field about a specified trajectory
+        Flow Field Finder that gathers a flow field about a specified trajectory
+        Inherited from FlowFieldFinder base, which provides basic structure and utilities
 
         Args:
-            mrnn (RNN): RNN-like object
+            rnn (nn.RNN): RNN object, more architectures coming soon
             num_points (int): number of points to use in grid, results in (num_points, num_points)
             x_offset (int): scale to offset grid about trajectory in x direction
             y_offset (int): scale to offset grid about trajectory in y direction
-            cancel_other_regions (bool): whether or not to zero out activity from other regions
-            follow_traj (bool): whether or not to center the grid around each trajectory
+            x_center (int): x position to offset from using x_offset
+            h_center (int): y position to offset from using y_offset
+            follow_traj (bool): whether or not to center the grid around each state or use 
+                default grid locations
         """
 
         self.follow_traj = follow_traj
@@ -43,21 +46,19 @@ class FlowFieldFinder(FlowFieldFinderBase):
         states: torch.Tensor,
         inp: torch.Tensor,
     ) -> list:
-        """Compute 2D flow fields in a region subspace along a trajectory.
+        """Compute 2D flow fields at each given state
 
         Projects selected region activity onto a 2D PCA subspace, constructs a grid
         around the current point, and advances the system by one step to estimate
-        the local flow (velocity vectors). Can zero out non-selected regions or
-        keep their control values.
+        the local flow (velocity vectors).
 
         Args:
-            states (torch.Tensor): Hidden activations over time [batch_size, T, N].
-            inp (torch.Tensor): External input sequence.
-            stim_input (torch.Tensor | None): Optional additive stimulus input.
-            W (torch.Tensor | None): Optional weight matrix to use.
+            states (torch.Tensor): Hidden activations over time, can be batched or 1D
+            inp (torch.Tensor): External input sequence, can be batched or 1D, but
+                the total number of inputs (batch elements) must match that of states
 
         Returns:
-            list: FlowField object per sampled time.
+            list: FlowField object per sampled state
         """
 
         flow_field_list = []
@@ -129,10 +130,17 @@ class FlowFieldFinder(FlowFieldFinderBase):
 
         Similar to :func:`flow_field`, but uses a local linear approximation (Jacobian)
         of the dynamics around points on the trajectory instead of a full forward
-        step. Assumes no external input to the selected regions.
+        step.
 
         Args:
-            states (torch.Tensor): Hidden activations over time for selected regions, [n, d]
+            states (torch.Tensor): Hidden activations over time for selected regions,
+                can be 1D or batched
+            inp (torch.Tensor): External input sequence, can be batched or 1D, but
+                the total number of inputs (batch elements) must match that of states
+            delta_inp (torch.Tensor): External input sequence of input perturbations,
+                can be batched or 1D, but the total number of inputs (batch elements)
+                must match that of states, and the overall shape must match inp
+
         Returns:
             list: FlowField objects per sampled time.
         """

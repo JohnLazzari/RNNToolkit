@@ -8,7 +8,7 @@ def unit_vector(vector: torch.Tensor) -> torch.Tensor:
     return vector / torch.linalg.norm(vector)
 
 
-def angle_between(v1: torch.Tensor, v2: torch.Tensor) -> float:
+def angle_between(v1: torch.Tensor, v2: torch.Tensor) -> torch.Tensor:
     """Returns the angle in radians between vectors 'v1' and 'v2'::"""
     if torch.all(v1 == 0):
         v1_u = v1

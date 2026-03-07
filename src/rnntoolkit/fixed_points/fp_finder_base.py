@@ -14,6 +14,7 @@ class FixedPointFinderBase(Generic[RNN]):
         **kwargs,
     ):
         """Creates a FixedPointFinder object.
+
         Base class that can be overwritten for different types of RNNs
         This is meant for running optimization on RNN states to find fixed points
 
@@ -49,16 +50,13 @@ class FixedPointFinderBase(Generic[RNN]):
 
         Args:
             state_traj: 1D or ND tensor containing
-            example trajectories of the RNN state.
-
+                example trajectories of the RNN state.
             n_inits: int specifying the number of sampled states to return.
-
             noise_scale (optional): non-negative float specifying the standard
-            deviation of IID Gaussian noise samples added to the sampled
-            states.
-
+                deviation of IID Gaussian noise samples added to the sampled
+                states.
             exclude_zero_tensors (bool, optional): whether to exclude zeros
-            tensors that may be in state_traj
+                tensors that may be in state_traj
 
         Returns:
             initial_states: Sampled RNN states as a [n_inits x n_states] tensor
@@ -90,6 +88,7 @@ class FixedPointFinderBase(Generic[RNN]):
         return states
 
     def find_fixed_points(self, *args, **kwargs):
+        """Overwritten by subclass for network specific optimizations"""
         raise NotImplementedError
 
     # *************************************************************************
@@ -103,10 +102,9 @@ class FixedPointFinderBase(Generic[RNN]):
 
         Args:
             data: Tensor
-
             noise_scale: (Optional) non-negative scalar indicating the
-            standard deviation of the Gaussian noise samples to be generated.
-            Default: 0.0.
+                standard deviation of the Gaussian noise samples to be generated.
+                Default: 0.0.
 
         Returns:
             Tensor matching shape of data with noise added
@@ -128,10 +126,9 @@ class FixedPointFinderBase(Generic[RNN]):
 
         Args:
             fps: A FixedPoints object containing optimized fixed points and
-            associated metadata.
-
+                associated metadata.
             q_thresh: A scalar float indicating the threshold on fixed
-            points' q values.
+                points' q values.
 
         Returns:
             A tensor containing the indices into fps corresponding to
@@ -153,10 +150,9 @@ class FixedPointFinderBase(Generic[RNN]):
 
         Args:
             fps: A FixedPoints object containing optimized fixed points and
-            associated metadata.
-
+                associated metadata.
             q_thresh: A scalar float indicating the threshold on fixed points'
-            q values.
+                q values.
 
         Returns:
             A tensor containing the indices into fps corresponding to the
@@ -175,9 +171,11 @@ class FixedPointFinderBase(Generic[RNN]):
     ) -> torch.Tensor:
         """
         get initial states that are far from centroid based on threshold.
+
         Args:
             initial_states (Tensor): initial states of fp optimization [n, state_dim]
             dist_thresh (float): Threshold from initial states which is far.
+
         Returns:
             init_non_outlier_idx (Tensor): indices to initial_states tensor inside threshold
         """
@@ -201,10 +199,12 @@ class FixedPointFinderBase(Generic[RNN]):
     ) -> torch.Tensor:
         """
         get fixed points that are far from initial states based on threshold.
+
         Args:
             fps (FixedPointCollection): fps discovered [n, state_dim]
             initial_states (Tensor): initial states of optimization [n, state_dim]
             dist_thresh (float): threshold at which fixed points are considered far
+
         Returns:
             fsp_non_outlier_distance (Tensor): indices to fps object that are not far
         """

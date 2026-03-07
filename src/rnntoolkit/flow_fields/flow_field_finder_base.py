@@ -1,9 +1,6 @@
 import torch
 import torch.nn as nn
-import numpy as np
 from sklearn.decomposition import PCA
-from rnntoolkit.linear import Linearization
-from rnntoolkit.flow_fields.flow_field import FlowField
 from typing import Generic, TypeVar, Tuple
 
 RNN = TypeVar("RNN", bound=nn.Module)
@@ -25,17 +22,18 @@ class FlowFieldFinderBase(Generic[RNN]):
         Flow field that gathers a flow field about a specified trajectory
 
         This class is meant to be inherited only by very specific users who are designing
-        custom RNNs and would like a base structure to go off off
+        custom RNNs and would like a base structure to go off of
 
         Typical users training RNNs or mRNNs should only use the FlowFieldFinder or
         mFlowFieldFinder classes provided by the packages
 
         Args:
-            mrnn (RNN): RNN-like object
+            rnn (RNN): RNN-like object
             num_points (int): number of points to use in grid, results in (num_points, num_points)
             x_offset (int): scale to offset grid about trajectory in x direction
             y_offset (int): scale to offset grid about trajectory in y direction
-            follow_traj (bool): whether or not to center the grid around each trajectory
+            x_center (int): x position to offset from using x_offset
+            h_center (int): y position to offset from using y_offset
         """
         self.rnn = rnn
         self.fit_states = fit_states
@@ -89,7 +87,6 @@ class FlowFieldFinderBase(Generic[RNN]):
 
         Args:
             trajectory (Tensor): states to reduce
-            args (str, ...): regions to gather
 
         Returns:
             Tensor: reduced states
@@ -185,6 +182,9 @@ class FlowFieldFinderBase(Generic[RNN]):
         return x_vels, y_vels, grid, speeds
 
     def _set_bounds(self) -> Tuple[float, float, float, float]:
+        """
+        Design grid bounds using a static center and offsetting
+        """
         lower_bound_x = self.x_center - self.x_offset
         upper_bound_x = self.x_center + self.x_offset
         lower_bound_y = self.y_center - self.y_offset
@@ -192,6 +192,12 @@ class FlowFieldFinderBase(Generic[RNN]):
         return lower_bound_x, upper_bound_x, lower_bound_y, upper_bound_y
 
     def _set_tv_bounds(self, traj: torch.Tensor) -> Tuple[float, float, float, float]:
+        """
+        Design grid bounds centered at the state traj using the offsets
+
+        Args:
+            traj (Tensor): state to center grid at
+        """
         lower_bound_x = torch.round(traj[0] - self.x_offset, decimals=1).item()
         upper_bound_x = torch.round(traj[0] + self.x_offset, decimals=1).item()
         lower_bound_y = torch.round(traj[1] - self.y_offset, decimals=1).item()

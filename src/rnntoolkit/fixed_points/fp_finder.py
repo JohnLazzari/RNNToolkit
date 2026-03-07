@@ -74,6 +74,7 @@ class FixedPointFinder(FixedPointFinderBase):
     ):
         super().__init__(rnn)
         """Creates a FixedPointFinder object.
+        Inherited from FixedPointFinderBase
 
         Optimization terminates once every initialization satisfies one or
         both of the following criteria:
@@ -82,71 +83,40 @@ class FixedPointFinder(FixedPointFinderBase):
 
         Args:
             rnn_cell: A Pytorch RNN
-
             tol_q (optional): A positive scalar specifying the optimization
-            termination criteria on each q-value. Default: 1e-12.
-
+                termination criteria on each q-value. Default: 1e-12.
             tol_dq (optional): A positive scalar specifying the optimization
-            termination criteria on the improvement of each q-value (i.e.,
-            "dq") from one optimization iteration to the next. Default: 1e-20.
-
+                termination criteria on the improvement of each q-value (i.e.,
+                "dq") from one optimization iteration to the next.
             max_iters (optional): A non-negative integer specifying the
-            maximum number of gradient descent iterations allowed.
-            Optimization terminates upon reaching this iteration count, even
-            if 'tol' has not been reached. Default: 5000.
-
+                maximum number of gradient descent iterations allowed.
             do_rerun_q_outliers (optional): A bool indicating whether or not
-            to run additional optimization iterations on putative outlier
-            states, identified as states with large q values relative to the
-            median q value across all identified fixed points (i.e., after
-            the initial optimization ran to termination). These additional
-            optimizations are run sequentially (even if method is 'joint').
-            Default: False.
-
+                to run additional optimization iterations on putative outlier
+                states
             outlier_q_scale (optional): A positive float specifying the q
-            value for putative outlier fixed points, relative to the median q
-            value across all identified fixed points. Default: 10.
-
+                value for putative outlier fixed points, relative to the median q
+                value across all identified fixed points. Default: 10.
             do_exclude_distance_outliers (optional): A bool indicating
-            whether or not to discard states that are far away from the set
-            of initial states, as measured by a normalized euclidean
-            distance. If true, states are evaluated and possibly discarded
-            after the initial optimization runs to termination.
-            Default: True.
-
+                whether or not to discard states that are far away from the set
+                of initial states
             outlier_distance_scale (optional): A positive float specifying a
-            normalized distance cutoff used to exclude distance outliers. All
-            distances are calculated relative to the centroid of the
-            initial_states and are normalized by the average distance-to-
-            centroid of the initial_states. Default: 10.
-
+                normalized distance cutoff used to exclude distance outliers
             tol_unique (optional): A positive scalar specifying the numerical
-            precision required to label two fixed points as being unique from
-            one another. Two fixed points will be considered unique if they
-            differ by this amount (or more) along any dimension. This
-            tolerance is used to discard numerically similar fixed points.
-            Default: 1e-3.
-
+                precision required to label two fixed points as being unique from
+                one another. 
             max_n_unique (optional): A positive integer indicating the max
-            number of unique fixed points to keep. If the number of unique
-            fixed points identified exceeds this value, points are randomly
-            dropped. Default: np.inf.
-
+                number of unique fixed points to keep.
             dtype: string indicating the data type to use for all numerical ops
-            and objects. Default: 'float32'
-
+                and objects. Default: 'float32'
             random_seed: Seed for numpy random number generator. Default: 0.
-
             verbose (optional): A bool indicating whether to print high-level
-            status updates. Default: True.
-
+                status updates. Default: True.
             super_verbose (optional): A bool indicating whether or not to
-            print per-iteration updates during each optimization. Default:
-            False.
-
+                print per-iteration updates during each optimization. Default:
+                False.
             n_iters_per_print_update (optional): An int specifying how often
-            to print updates during the fixed point optimizations. Default:
-            100.
+                to print updates during the fixed point optimizations. Default:
+                100.
         """
 
         self.dtype = dtype
@@ -192,35 +162,18 @@ class FixedPointFinder(FixedPointFinderBase):
 
         Args:
             initial_states: Tensor specifying the initial
-            states of the RNN, from which the optimization will search for
-            fixed points.
-
+                states of the RNN, from which the optimization will search for
+                fixed points.
             ext_inputs: external inputs to the RNN
-
-            stim_inp: Additional stimulus input to the network
-
-            W_rec: Fixed weight matrix to replace self.mrnn.W_rec in forward
-            pass
-
-            W_rec: Fixed weight matrix to replace self.mrnn.W_inp in forward
-            pass
-
             n_rounds_q_opt: Number of rounds to run extra iterations on q
             outliers
 
         Returns:
             unique_fps: A FixedPoints object containing the set of unique
-            fixed points after optimizing from all initial_states. Two fixed
-            points are considered unique if all absolute element-wise
-            differences are less than tol_unique AND the corresponding inputs
-            are unique following the same criteria. See FixedPoints.py for
-            additional detail.
-
+                fixed points after optimizing from all initial_states
             all_fps: A FixedPoints object containing the likely redundant set
-            of fixed points (and associated metadata) resulting from ALL
-            initializations in initial_states (i.e., the full set of fixed
-            points before filtering out putative duplicates to yield
-            unique_fps).
+                of fixed points (and associated metadata) resulting from ALL
+                initializations in initial_states
         """
 
         all_fps = self._fp_optimization(
@@ -287,24 +240,14 @@ class FixedPointFinder(FixedPointFinderBase):
 
         Args:
             fps: A FixedPoints object containing (partially) optimized
-            fixed points and associated metadata.
-
+                fixed points and associated metadata.
             stim_inp: additional stimulus to give network during optimization
-
             W_rec: replaces self.mrnn.W_rec during forward pass
-
             W_inp: replaces self.mrnn.W_inp during forward pass
 
         Returns:
             A FixedPoints object containing the further-optimized fixed points
             and associated metadata.
-        """
-
-        """
-        Known issue:
-            Additional iterations do not always reduce q! This may have to do
-            with learning rate schedules restarting from values that are too
-            large.
         """
 
         assert fps.qstar is not None
@@ -418,17 +361,10 @@ class FixedPointFinder(FixedPointFinderBase):
 
         Args:
             initial_states: Tensor specifying the initial
-            states of the RNN, from which the optimization will search for
-            fixed points.
-
+                states of the RNN, from which the optimization will search for
+                fixed points.
             ext_inp: Tensor specifying a set of constant
-            inputs into the RNN.
-
-            stim_inp: Tensor specifying additional stimulus to the network
-
-            W_rec: replaces self.mrnn.W_rec in forward
-
-            W_inp: replaces self.mrnn.W_inp in forward
+                inputs into the RNN.
 
         Returns:
             fps: A FixedPoints object containing the optimized fixed points

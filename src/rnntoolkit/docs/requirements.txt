@@ -1,0 +1,7 @@
+sphinx>=7
+shibuya
+numpy
+torch
+scikit-learn
+scipy
+matplotlib
