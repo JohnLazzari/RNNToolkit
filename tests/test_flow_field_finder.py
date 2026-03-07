@@ -7,12 +7,13 @@ from rnntoolkit.flow_fields.flow_field_finder import FlowFieldFinder
 
 def test_find_nonlinear_flow_returns_flow_fields():
     rnn = nn.RNN(input_size=2, hidden_size=2, batch_first=True, nonlinearity="tanh")
-    finder = FlowFieldFinder(
-        rnn, num_points=3, x_offset=1, y_offset=1, x_center=0, y_center=0
-    )
 
     states = torch.tensor([[0.1, 0.2], [0.2, 0.1], [0.3, -0.1]])
     inp = torch.tensor([[0.0, 0.0], [0.1, 0.2], [-0.1, 0.1]])
+
+    finder = FlowFieldFinder(
+        rnn, states, num_points=3, x_offset=1, y_offset=1, x_center=0, y_center=0
+    )
 
     flows = finder.find_nonlinear_flow(states, inp)
 
@@ -23,13 +24,11 @@ def test_find_nonlinear_flow_returns_flow_fields():
 
 def test_inverse_grid_shapes_match_num_points():
     rnn = nn.RNN(input_size=2, hidden_size=2, batch_first=True, nonlinearity="tanh")
+    traj = torch.tensor([[0.0, 0.1], [0.2, 0.3]])
     finder = FlowFieldFinder(
-        rnn, num_points=4, x_offset=1, y_offset=1, x_center=0, y_center=0
+        rnn, traj, num_points=4, x_offset=1, y_offset=1, x_center=0, y_center=0
     )
 
-    traj = torch.tensor([[0.0, 0.1], [0.2, 0.3]])
-    finder._fit_traj(traj)
-    finder._reduce_traj(traj)
     low_dim_grid, inv_grid = finder._inverse_grid(-1, 1, -1, 1)
 
     assert low_dim_grid.shape == (16, 2)

@@ -113,6 +113,9 @@ class Linearization:
             torch.Tensor: Imag parts of eigenvalues.
             torch.Tensor: Eigenvectors stacked column-wise.
         """
+        assert h.dim() == 1
+        assert input.dim() == 1
+
         _jacobian, _ = self.jacobian(input, h)
         eigenvalues, eigenvectors = torch.linalg.eig(_jacobian)
 

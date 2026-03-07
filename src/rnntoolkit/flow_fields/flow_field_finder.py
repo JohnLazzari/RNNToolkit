@@ -10,14 +10,17 @@ class FlowFieldFinder(FlowFieldFinderBase):
     def __init__(
         self,
         rnn: nn.RNN,
+        fit_states: torch.Tensor,
         num_points: int,
         x_offset: int,
         y_offset: int,
-        x_center: int,
-        y_center: int,
+        x_center: int = 0,
+        y_center: int = 0,
         follow_traj: bool = False,
     ):
-        super().__init__(rnn, num_points, x_offset, y_offset, x_center, y_center)
+        super().__init__(
+            rnn, fit_states, num_points, x_offset, y_offset, x_center, y_center
+        )
         """
         Flow field that gathers a flow field about a specified trajectory
 
@@ -29,17 +32,16 @@ class FlowFieldFinder(FlowFieldFinderBase):
             cancel_other_regions (bool): whether or not to zero out activity from other regions
             follow_traj (bool): whether or not to center the grid around each trajectory
         """
+
         self.follow_traj = follow_traj
 
-        # class objects
-        self.reduce_obj = PCA(n_components=2)
+        # Need to define a valid linearization object in each child of FlowFieldFinderBase
         self.linearization = Linearization(self.rnn)
 
     def find_nonlinear_flow(
         self,
         states: torch.Tensor,
         inp: torch.Tensor,
-        traj_to_reduce: torch.Tensor | None = None,
     ) -> list:
         """Compute 2D flow fields in a region subspace along a trajectory.
 
@@ -67,8 +69,6 @@ class FlowFieldFinder(FlowFieldFinderBase):
         assert states.shape[0] == inp.shape[0]
         n_states = states.shape[0]
 
-        traj_to_reduce = states if traj_to_reduce is None else traj_to_reduce
-        self._fit_traj(traj_to_reduce)
         reduced_traj = self._reduce_traj(states)
 
         # Now going through trajectory
@@ -124,7 +124,6 @@ class FlowFieldFinder(FlowFieldFinderBase):
         states: torch.Tensor,
         inp: torch.Tensor,
         delta_inp: torch.Tensor,
-        traj_to_reduce: torch.Tensor,
     ) -> list:
         """Compute linearized flow fields in a 2D subspace.
 
@@ -142,13 +141,13 @@ class FlowFieldFinder(FlowFieldFinderBase):
         states, inp, delta_inp = self._nxd(states), self._nxd(inp), self._nxd(delta_inp)
 
         assert states.shape[0] == delta_inp.shape[0]
+        assert delta_inp.shape == inp.shape
         n_states = states.shape[0]
 
         # Lists for x and y velocities
         flow_field_list = []
 
         # Reduce the regional trajectories and return pca object
-        self._fit_traj(traj_to_reduce)
         reduced_traj = self._reduce_traj(states)
 
         for n in range(n_states):

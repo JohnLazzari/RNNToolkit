@@ -13,15 +13,22 @@ class FlowFieldFinderBase(Generic[RNN]):
     def __init__(
         self,
         rnn: RNN,
+        fit_states: torch.Tensor,
         num_points: int,
         x_offset: int,
         y_offset: int,
-        x_center: int,
-        y_center: int,
+        x_center: int = 0,
+        y_center: int = 0,
         **kwargs,
     ):
         """
         Flow field that gathers a flow field about a specified trajectory
+
+        This class is meant to be inherited only by very specific users who are designing
+        custom RNNs and would like a base structure to go off off
+
+        Typical users training RNNs or mRNNs should only use the FlowFieldFinder or
+        mFlowFieldFinder classes provided by the packages
 
         Args:
             mrnn (RNN): RNN-like object
@@ -31,6 +38,7 @@ class FlowFieldFinderBase(Generic[RNN]):
             follow_traj (bool): whether or not to center the grid around each trajectory
         """
         self.rnn = rnn
+        self.fit_states = fit_states
         self.num_points = num_points
         self.x_offset = x_offset
         self.y_offset = y_offset
@@ -41,6 +49,7 @@ class FlowFieldFinderBase(Generic[RNN]):
 
         # class objects
         self.reduce_obj = PCA(n_components=2)
+        self._fit_traj(self.fit_states)
 
     def find_nonlinear_flow(self, *args, **kwargs) -> list:
         """Compute 2D flow fields in a region subspace along a trajectory."""
