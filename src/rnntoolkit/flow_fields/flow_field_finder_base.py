@@ -37,6 +37,7 @@ class FlowFieldFinderBase(Generic[RNN]):
         self.x_center = x_center
         self.y_center = y_center
         self.time_dim = 1 if self.rnn.batch_first else 0
+        self.dtype = next(self.rnn.parameters()).dtype
 
         # class objects
         self.reduce_obj = PCA(n_components=2)
@@ -126,7 +127,7 @@ class FlowFieldFinderBase(Generic[RNN]):
 
         # Inverse PCA to input grid into network
         inverse_grid = self.reduce_obj.inverse_transform(low_dim_grid)
-        inverse_grid = inverse_grid.to(self.rnn.dtype)
+        inverse_grid = inverse_grid.to(self.dtype)
 
         if expand_dims:
             low_dim_grid = torch.reshape(

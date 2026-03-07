@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-from typing import Generic, TypeVar
 
 
 class Linearization:
@@ -53,11 +52,12 @@ class Linearization:
         _jacobian, _jacobian_inp = self.jacobian(input, h)
 
         # reshape to pass into RNN
-        inp = input.unsqueeze(0).unsqueeze(0)
+        input = input.unsqueeze(0).unsqueeze(0)
         h = h.unsqueeze(0).unsqueeze(0)
 
-        # Get h_next for affine function
-        _, h_next = self.rnn(inp, h)
+        with torch.no_grad():
+            # Get h_next for affine function
+            _, h_next = self.rnn(input, h)
 
         h_pert = (
             h_next.squeeze(0)
@@ -69,7 +69,7 @@ class Linearization:
 
     def jacobian(
         self, input: torch.Tensor, h: torch.Tensor
-    ) -> torch.Tensor | tuple[torch.Tensor, torch.Tensor]:
+    ) -> tuple[torch.Tensor, torch.Tensor]:
         """Linearize the dynamics around a state and return the Jacobian.
 
         Computes the Jacobian of the mRNN update with respect to the hidden state
@@ -88,12 +88,17 @@ class Linearization:
             state, and optionally (Jacobian w.r.t. input) if ``W_inp`` is provided.
         """
         assert h.dim() == 1
+        assert input.dim() == 1
 
-        _, _jacobians_h = torch.autograd.functional.jacobian(self.rnn, (input, h))
+        input = input.unsqueeze(0).unsqueeze(0)
+        h = h.unsqueeze(0).unsqueeze(0)
+
+        with torch.no_grad():
+            _, _jacobians_h = torch.autograd.functional.jacobian(self.rnn, (input, h))
 
         _jacobian_input, _jacobian_h = _jacobians_h
 
-        return _jacobian_h, _jacobian_input
+        return _jacobian_h.squeeze(), _jacobian_input.squeeze()
 
     def eigendecomposition(
         self, input: torch.Tensor, h: torch.Tensor

@@ -36,7 +36,10 @@ class FlowFieldFinder(FlowFieldFinderBase):
         self.linearization = Linearization(self.rnn)
 
     def find_nonlinear_flow(
-        self, states: torch.Tensor, inp: torch.Tensor, traj_to_reduce: torch.Tensor
+        self,
+        states: torch.Tensor,
+        inp: torch.Tensor,
+        traj_to_reduce: torch.Tensor | None = None,
     ) -> list:
         """Compute 2D flow fields in a region subspace along a trajectory.
 
@@ -64,6 +67,7 @@ class FlowFieldFinder(FlowFieldFinderBase):
         assert states.shape[0] == inp.shape[0]
         n_states = states.shape[0]
 
+        traj_to_reduce = states if traj_to_reduce is None else traj_to_reduce
         self._fit_traj(traj_to_reduce)
         reduced_traj = self._reduce_traj(states)
 

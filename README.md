@@ -1,6 +1,6 @@
-# RNNTookit
+![RNNToolkit banner](assets/banner.png)
 
-RNNToolkit (previously DSATorch) provides small, focused utilities for analyzing recurrent neural networks (RNNs) in PyTorch. It includes tools for local linearization, fixed point discovery, and flow-field visualization.
+RNNToolkit provides small, focused utilities for analyzing recurrent neural networks (RNNs) in PyTorch. It includes tools for local linearization, fixed point discovery, and flow-field visualization.
 
 ## What is included
 
