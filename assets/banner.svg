@@ -720,5 +720,5 @@
 <polygon points="1307.55,374.25 1310.43,367.38 1314.51,371.60" fill="rgb(233,179,48)" />
 <line x1="1360.00" y1="360.00" x2="1351.27" y2="366.12" stroke="rgb(90,197,103)" stroke-width="2.2" stroke-linecap="round" />
 <polygon points="1345.67,370.04 1349.59,363.71 1352.96,368.52" fill="rgb(90,197,103)" />
-<text x="40" y="75" font-family="DejaVu Sans, Arial, sans-serif" font-weight="700" font-size="84" fill="#111111" letter-spacing="0.2">RNNToolkit</text>
+<text x="40" y="120" font-family="DejaVu Sans, Arial, sans-serif" font-weight="700" font-size="92" fill="#111111" letter-spacing="0.2">RNNToolkit</text>
 </svg>

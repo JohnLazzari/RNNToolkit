@@ -1,8 +1,8 @@
 ![RNNToolkit banner](assets/banner.png)
 
-RNNToolkit provides small, focused utilities for analyzing recurrent neural networks (RNNs) in PyTorch. It includes tools for local linearization, fixed point discovery, and flow-field visualization.
+RNNToolkit provides small, focused utilities for analyzing recurrent neural networks (RNNs) in PyTorch. It includes tools for local linearization, fixed point discovery, and flow-field visualization. Great for neuroscience modeling with RNNs! :brain:
 
-## What is included
+## What is included :bar_chart:
 
 - Linearization helpers to compute Jacobians and eigendecompositions around a state.
 - Fixed point finding utilities with filtering, saving, and analysis helpers.
@@ -15,7 +15,7 @@ RNNToolkit provides small, focused utilities for analyzing recurrent neural netw
 - numpy
 - scikit-learn (for flow field PCA)
 
-## Install / use locally
+## Install / use locally :computer:
 
 Install from source in the project root directory using:
 
@@ -30,9 +30,9 @@ pip install -e .
 | `rnntoolkit.flow_fields`  | Compute flow fields / phase portraits on RNN states in reduced dimensions |
 | `rnntoolkit.linear`       | Linearize RNNs about states and compute jacobians |
 
-## Quick start
+## Quick start :zap:
 
-### Linearization
+### Linearization :microscope:
 
 `Linearization` expects an RNN-like module.
 
@@ -47,7 +47,7 @@ state = torch.tensor([0.1, -0.2])
 J_rec, J_inp = lin.jacobian(state)
 ```
 
-### Fixed point finder
+### Fixed point finder :compass:
 
 `FixedPointFinder` works with standard PyTorch RNN/GRU/LSTM modules.
 
@@ -64,7 +64,7 @@ unique_fps, all_fps = fp_finder.find_fixed_points(initial_states, ext_inputs)
 print(unique_fps.n)
 ```
 
-### Flow fields
+### Flow fields :cyclone:
 
 `FlowFieldFinder` also works with standard PyTorch RNNs.
 
