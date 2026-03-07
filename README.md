@@ -1,5 +1,7 @@
 ![RNNToolkit banner](assets/banner.png)
 
+[![Documentation](https://img.shields.io/badge/docs-Read%20the%20Docs-blue)](https://rnntoolkit.readthedocs.io/en/latest/)
+
 RNNToolkit provides small, focused utilities for analyzing recurrent neural networks (RNNs) in PyTorch. It includes tools for local linearization, fixed point discovery, and flow-field visualization. Great for neuroscience modeling with RNNs! :brain:
 
 ## What is included :bar_chart:
