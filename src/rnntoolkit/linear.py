@@ -2,13 +2,11 @@ import torch
 import torch.nn as nn
 from typing import Generic, TypeVar
 
-RNN = TypeVar("RNN", bound=nn.Module)
 
-
-class Linearization(Generic[RNN]):
+class Linearization:
     def __init__(
         self,
-        rnn: RNN,
+        rnn: nn.RNN,
     ):
         """
         Linearization object that stores methods for local analyses of mRNNs
@@ -91,9 +89,9 @@ class Linearization(Generic[RNN]):
         """
         assert h.dim() == 1
 
-        _jacobian_input, _jacobian_h = torch.autograd.functional.jacobian(
-            self.rnn, (input, h)
-        )
+        _, _jacobians_h = torch.autograd.functional.jacobian(self.rnn, (input, h))
+
+        _jacobian_input, _jacobian_h = _jacobians_h
 
         return _jacobian_h, _jacobian_input
 
