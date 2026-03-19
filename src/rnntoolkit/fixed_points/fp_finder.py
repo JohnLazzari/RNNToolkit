@@ -436,7 +436,7 @@ class FixedPointFinder(FixedPointFinderBase):
             q_scalar.backward()
 
             optimizer.step()
-            scheduler.step(metrics=q_scalar)
+            scheduler.step(metrics=q_scalar.detach())
 
             iter_learning_rate = scheduler.state_dict()["_last_lr"][0]
 

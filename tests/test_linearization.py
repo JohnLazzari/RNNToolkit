@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import pytest
 
-from rnntoolkit.linear import Linearization
+from rnntoolkit import Linearization
 
 
 def test_jacobian_matches_weighted_activation_grad():

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import pytest
 
-from rnntoolkit.flow_fields.flow_field_finder import FlowFieldFinder
+from rnntoolkit import FlowFieldFinder
 
 
 def test_find_nonlinear_flow_returns_flow_fields():

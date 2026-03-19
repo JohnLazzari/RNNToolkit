@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 
-from rnntoolkit.fixed_points.fp_finder import FixedPointFinder
-from rnntoolkit.fixed_points.fp import FixedPointCollection
+from rnntoolkit import FixedPointFinder
+from rnntoolkit import FixedPointCollection
 
 
 def test_sample_states_excludes_zero_rows():
