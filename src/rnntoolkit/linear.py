@@ -66,6 +66,10 @@ class Linearization:
             # Get h_next for affine function
             _, h_next = self.rnn(input, h)
 
+        # If there is only a single input there becomes a shape issue with squeezing
+        if delta_input.shape == (1,) and _jacobian_inp.dim() == 1:
+            _jacobian_inp = _jacobian_inp.unsqueeze(1)
+
         h_pert = (
             h_next.squeeze(0)
             + (_jacobian @ delta_h.T).T
