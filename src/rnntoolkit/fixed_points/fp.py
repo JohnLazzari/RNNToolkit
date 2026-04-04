@@ -176,13 +176,13 @@ class FixedPointCollection:
 
         return idx.numel() > 0
 
-    def get_unique(self) -> Self:
+    def get_unique(self, use_F_xstar: bool = False) -> Self:
         """
         Identifies unique fixed points. Among duplicates identified,
         this keeps the one with smallest qstar.
 
         Args:
-            None.
+            use_F_xstar (bool): Whether to find unique on F_xstar instead of xstar
 
         Returns:
             A FixedPoints object containing only the unique fixed points and
@@ -204,7 +204,9 @@ class FixedPointCollection:
             # Don't compare against FPs we've already checked
             idx_check = torch.where(~idx_checked)[0]
             fps_check = self[idx_check.tolist()]  # only check against these FPs
-            idx_idx_check = fps_check.find(self[idx])  # indexes into fps_check
+            idx_idx_check = fps_check.find(
+                self[idx], use_F_xstar=use_F_xstar
+            )  # indexes into fps_check
             idx_match = idx_check[idx_idx_check]  # indexes into self
 
             if len(idx_match) == 1:
@@ -240,7 +242,7 @@ class FixedPointCollection:
 
         return type(self)(**kwargs)
 
-    def find(self, fp: Self) -> torch.Tensor:
+    def find(self, fp: Self, use_F_xstar: bool = False) -> torch.Tensor:
         """Searches in the current FixedPoints object for matches to a
         specified fixed point. Two fixed points are defined as matching
         if the 2-norm of the difference between their concatenated (xstar,
@@ -259,14 +261,22 @@ class FixedPointCollection:
         result = torch.empty(0, dtype=torch.int)
 
         if isinstance(fp, FixedPointCollection):
+            # return if either object does not contain F_xstar
+            if use_F_xstar and (self.F_xstar is None or fp.F_xstar is None):
+                return result
+
             if fp.n_states == self.n_states and fp.n_inputs == self.n_inputs:
                 if self.inputs is None:
-                    self_data_nxd = self.xstar
-                    arg_data_nxd = fp.xstar
+                    self_data_nxd = self.F_xstar if use_F_xstar else self.xstar
+                    arg_data_nxd = fp.F_xstar if use_F_xstar else fp.xstar
                 else:
-                    self_data_nxd = torch.cat((self.xstar, self.inputs), dim=1)
+                    self_state = self.F_xstar if use_F_xstar else self.xstar
+                    other_state = fp.F_xstar if use_F_xstar else fp.xstar
+                    self_data_nxd = torch.cat((self_state, self.inputs), dim=1)
                     assert isinstance(fp.inputs, torch.Tensor)
-                    arg_data_nxd = torch.cat((fp.xstar, fp.inputs), dim=1)
+                    arg_data_nxd = torch.cat((other_state, fp.inputs), dim=1)
+
+                assert self_data_nxd is not None
 
                 norm_diffs_n = torch.linalg.norm(self_data_nxd - arg_data_nxd, axis=1)
 
